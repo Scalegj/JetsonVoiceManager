@@ -25,7 +25,11 @@ class JetsonConfig:
     # Voice activity detection
     silence_threshold: float = 500.0  # RMS threshold for silence detection
     silence_duration: float = 2.5  # Seconds of silence before stopping recording
-    
+
+    # Performance settings
+    num_tts_clients: int = 3  # Number of concurrent TTS connections for parallel synthesis
+    debug_pipeline: bool = False  # Enable detailed pipeline timing diagnostics
+
     # System prompt for the chatbot
     system_prompt: str = (
         "You are a helpful and friendly AI assistant designed to be a companion "

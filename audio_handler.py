@@ -131,6 +131,61 @@ class AudioHandler:
 
         except Exception as e:
             print(f"Audio playback error: {e}")
+
+    async def play_audio_stream(self, audio_queue, debug=False):
+        """Play audio sentences continuously from an async queue without gaps.
+
+        Args:
+            audio_queue: asyncio.Queue that yields WAV audio bytes.
+                         Queue should receive None as sentinel to stop.
+            debug: If True, print timing information for each sentence.
+        """
+        import time
+        stream = None
+        sentence_count = 0
+
+        try:
+            while True:
+                audio_data = await audio_queue.get()
+                if audio_data is None:  # Sentinel to stop
+                    break
+
+                sentence_count += 1
+                if debug:
+                    print(f"\n[PLAY] Starting playback of sentence {sentence_count}")
+                playback_start = time.time()
+
+                # Extract audio frames from WAV bytes
+                with wave.open(io.BytesIO(audio_data), 'rb') as wav_file:
+                    sample_rate = wav_file.getframerate()
+                    channels = wav_file.getnchannels()
+                    sample_width = wav_file.getsampwidth()
+                    audio_frames = wav_file.readframes(wav_file.getnframes())
+
+                # Open stream on first sentence
+                if stream is None:
+                    stream = self.pyaudio.open(
+                        format=self.pyaudio.get_format_from_width(sample_width),
+                        channels=channels,
+                        rate=sample_rate,
+                        output=True
+                    )
+
+                # Write frames directly without closing stream
+                stream.write(audio_frames)
+
+                if debug:
+                    playback_elapsed = time.time() - playback_start
+                    print(f"[PLAY] Sentence {sentence_count} played in {playback_elapsed:.2f}s")
+
+        except Exception as e:
+            print(f"Audio stream playback error: {e}")
+
+        finally:
+            # Close stream when done
+            if stream is not None:
+                stream.stop_stream()
+                stream.close()
     
     def test_microphone(self) -> bool:
         """Test if microphone is accessible"""
