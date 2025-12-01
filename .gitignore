@@ -37,9 +37,6 @@ env/
 .env
 .env.local
 
-# Configuration (contains IP addresses)
-config.ini
-
 # Audio files (if you want to save recordings)
 *.wav
 *.mp3

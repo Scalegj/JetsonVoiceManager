@@ -42,6 +42,11 @@ def parse_arguments():
     parser.add_argument("--streaming", action="store_true", default=streaming_default,
                        help="Enable streaming")
 
+    interrupts_default = file_config.getboolean('enable_interrupts', True) if file_config else True
+    parser.add_argument("--no-interrupts", action="store_false", dest="enable_interrupts",
+                       default=interrupts_default,
+                       help="Disable interrupt detection (saves resources)")
+
     parser.add_argument("--list-devices", action="store_true", help="List audio devices")
 
     silence_threshold_default = file_config.getfloat('silence_threshold', 500.0) if file_config else 500.0
@@ -78,6 +83,7 @@ async def main():
         "ollama_model": args.model,
         "silence_threshold": args.silence_threshold,
         "silence_duration": args.silence_duration,
+        "enable_interrupts": args.enable_interrupts,
     }
     if args.system_prompt:
         config_kwargs["system_prompt"] = args.system_prompt
@@ -89,7 +95,8 @@ async def main():
     # Display configuration
     print(f"\nJetson Voice Chat")
     print(f"Connecting to {config.jetson_ip}")
-    print(f"Model: {config.ollama_model}\n")
+    print(f"Model: {config.ollama_model}")
+    print(f"Interrupts: {'Enabled' if config.enable_interrupts else 'Disabled'}\n")
 
     # Run voice chat
     voice_chat = VoiceChat(config)

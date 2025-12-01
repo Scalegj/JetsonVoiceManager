@@ -95,9 +95,22 @@ class VoiceChat:
         try:
             audio_response = await self.piper_clients[0].synthesize(assistant_text)
             if audio_response:
+                # Start interrupt monitoring before playback
+                self.audio_handler.start_interrupt_monitor()
+
                 self.audio_handler.play_audio(audio_response)
+
+                # Stop interrupt monitoring after playback
+                await self.audio_handler.stop_interrupt_monitor()
+
+                # Check if interrupted
+                if self.audio_handler.was_interrupted():
+                    print("\n⚠️  Playback interrupted!")
+                    print("Processing your interruption...")
+
         except Exception as e:
             print(f"Speech error: {e}")
+            await self.audio_handler.stop_interrupt_monitor()
 
         return True
     
@@ -157,6 +170,9 @@ class VoiceChat:
         if user_text.lower().strip() in ["exit", "quit", "goodbye", "bye", "stop"]:
             print("Goodbye!")
             return False
+
+        # Start interrupt monitoring
+        self.audio_handler.start_interrupt_monitor()
 
         # Stream LLM response with concurrent TTS processing
         print("Assistant: ", end="", flush=True)
@@ -291,9 +307,17 @@ class VoiceChat:
         # Break only on sentence endings (.!?) for natural prosody
         sentence_pattern = re.compile(r'([^.!?]*[.!?]+)')
         detected_count = [0]
+        interrupted = False
 
         try:
             async for chunk in self.ollama_client.chat_stream(user_text):
+                # Check for interrupt during LLM streaming
+                if self.audio_handler.interrupt_event.is_set():
+                    interrupted = True
+                    if self.config.debug_pipeline:
+                        print("\n[LLM] Streaming interrupted by user")
+                    break
+
                 print(chunk, end="", flush=True)
                 buffer += chunk
 
@@ -315,20 +339,21 @@ class VoiceChat:
                     # Remove processed sentence from buffer (even if empty)
                     buffer = buffer[match.end():].lstrip()
 
-            print()
+            if not interrupted:
+                print()
 
-            # Process any remaining text in buffer
-            if buffer.strip():
-                detected_count[0] += 1
-                if self.config.debug_pipeline:
-                    print(f"\n[LLM] Final fragment (sentence {detected_count[0]}), sending to TTS")
-                await sentence_queue.put(buffer.strip())
+                # Process any remaining text in buffer
+                if buffer.strip():
+                    detected_count[0] += 1
+                    if self.config.debug_pipeline:
+                        print(f"\n[LLM] Final fragment (sentence {detected_count[0]}), sending to TTS")
+                    await sentence_queue.put(buffer.strip())
 
         finally:
             # Signal completion to workers
             await sentence_queue.put(None)
 
-            # Wait for all synthesis and playback to complete
+            # Wait for all synthesis and playback to complete (or be interrupted)
             await tts_task
             await player_task
 
@@ -339,5 +364,14 @@ class VoiceChat:
                     await monitor_task
                 except asyncio.CancelledError:
                     pass
+
+            # Stop interrupt monitoring
+            await self.audio_handler.stop_interrupt_monitor()
+
+            # If interrupted, handle the interruption
+            if interrupted or self.audio_handler.was_interrupted():
+                print("\nProcessing your interruption...")
+                # Continue to next turn which will record the user's speech
+                return True
 
         return True

@@ -8,7 +8,13 @@ ollama_model = llama3.2:3b
 
 # Audio settings
 silence_threshold = 500.0
-silence_duration = 1.5
+silence_duration = 2.5
+
+# Interrupt settings
+# Set to false to disable interrupt detection and save resources
+enable_interrupts = true
+# RMS threshold for interrupt detection (slightly higher than silence_threshold)
+interrupt_threshold = 600.0
 
 # Uncomment and customize if you want a different system prompt
 # system_prompt = You are a helpful AI assistant.

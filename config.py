@@ -29,6 +29,11 @@ class JetsonConfig:
     silence_threshold: float = 500.0  # RMS threshold for silence detection
     silence_duration: float = 2.5  # Seconds of silence before stopping recording
 
+    # Interrupt settings
+    enable_interrupts: bool = True  # Allow user to interrupt AI speech
+    interrupt_threshold: float = 600.0  # RMS threshold for interrupt detection (slightly higher than silence)
+    interrupt_confirmation_chunks: int = 2  # Number of consecutive chunks above threshold to confirm interrupt
+
     # Performance settings
     num_tts_clients: int = 3  # Number of concurrent TTS connections for parallel synthesis
     debug_pipeline: bool = False  # Enable detailed pipeline timing diagnostics

@@ -51,6 +51,9 @@ python main.py 192.168.1.100 --streaming
 # Adjust for noisy environment
 python main.py 192.168.1.100 --silence-threshold 800
 
+# Disable interrupts to save resources
+python main.py 192.168.1.100 --no-interrupts
+
 # List audio devices
 python main.py 0.0.0.0 --list-devices
 ```
@@ -74,6 +77,21 @@ python main.py 0.0.0.0 --list-devices
 3. Processes text with Ollama (LLM)
 4. Synthesizes speech with Piper (TTS)
 5. Plays response through speakers
+6. Monitors for user interruptions during AI speech (optional)
+
+## Interrupts
+
+The system supports natural conversation interrupts - you can speak while the AI is responding to cut it off and provide new input. This feature:
+
+- Uses minimal resources (simple RMS-based voice detection)
+- Can be disabled with `--no-interrupts` to save even more resources
+- Automatically stops AI speech and TTS synthesis when you start speaking
+- Processes your interruption as a new conversation turn
+
+**Configuration:**
+- `enable_interrupts`: Enable/disable interrupt detection (default: True)
+- `interrupt_threshold`: RMS threshold for interrupt detection (default: 600.0)
+- `interrupt_confirmation_chunks`: Consecutive chunks needed to confirm interrupt (default: 2)
 
 ## Troubleshooting
 
@@ -97,16 +115,20 @@ Default settings:
 - Sample Rate: 16000 Hz
 - Channels: Mono
 - Silence Threshold: 500 RMS
-- Silence Duration: 1.5 seconds
+- Silence Duration: 2.5 seconds
 - Model: llama3.2:3b
+- Interrupts: Enabled
+- Interrupt Threshold: 600 RMS
 
-Customize system prompt:
+Customize settings:
 ```python
 from config import create_config
 
 config = create_config(
     jetson_ip="192.168.1.100",
-    system_prompt="Custom prompt here"
+    system_prompt="Custom prompt here",
+    enable_interrupts=True,
+    interrupt_threshold=600.0
 )
 ```
 

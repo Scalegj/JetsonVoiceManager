@@ -15,6 +15,8 @@ class AudioHandler:
         self.config = config
         self.pyaudio = pyaudio.PyAudio()
         self.stream: Optional[pyaudio.Stream] = None
+        self.interrupt_event = asyncio.Event()
+        self._monitor_task: Optional[asyncio.Task] = None
     
     def __del__(self):
         """Cleanup audio resources"""
@@ -147,6 +149,12 @@ class AudioHandler:
 
         try:
             while True:
+                # Check for interrupt before getting next audio
+                if self.interrupt_event.is_set():
+                    if debug:
+                        print("\n[PLAY] Playback interrupted by user")
+                    break
+
                 audio_data = await audio_queue.get()
                 if audio_data is None:  # Sentinel to stop
                     break
@@ -171,6 +179,12 @@ class AudioHandler:
                         rate=sample_rate,
                         output=True
                     )
+
+                # Check for interrupt during playback
+                if self.interrupt_event.is_set():
+                    if debug:
+                        print("\n[PLAY] Playback interrupted during sentence")
+                    break
 
                 # Write frames directly without closing stream
                 output_stream.write(audio_frames)
@@ -211,10 +225,93 @@ class AudioHandler:
         print("\nAvailable audio devices:")
         info = self.pyaudio.get_host_api_info_by_index(0)
         num_devices = info.get('deviceCount')
-        
+
         for i in range(num_devices):
             device_info = self.pyaudio.get_device_info_by_host_api_device_index(0, i)
             print(f"  [{i}] {device_info.get('name')}")
             print(f"      Max Input Channels: {device_info.get('maxInputChannels')}")
             print(f"      Max Output Channels: {device_info.get('maxOutputChannels')}")
             print()
+
+    async def monitor_for_interrupt(self):
+        """Monitor microphone for user speech to detect interrupts.
+
+        This runs in the background during AI speech playback.
+        Sets interrupt_event when user speech is detected.
+        """
+        if not self.config.enable_interrupts:
+            return
+
+        monitor_stream = None
+        try:
+            monitor_stream = self.pyaudio.open(
+                format=pyaudio.paInt16,
+                channels=self.config.channels,
+                rate=self.config.sample_rate,
+                input=True,
+                frames_per_buffer=self.config.chunk_size
+            )
+
+            consecutive_speech_chunks = 0
+
+            while not self.interrupt_event.is_set():
+                try:
+                    data = monitor_stream.read(self.config.chunk_size, exception_on_overflow=False)
+
+                    # Calculate RMS
+                    audio_data = np.frombuffer(data, dtype=np.int16)
+                    if len(audio_data) > 0:
+                        mean_square = np.mean(audio_data.astype(np.float64) ** 2)
+                        rms = np.sqrt(max(0, mean_square))
+                    else:
+                        rms = 0
+
+                    # Check if speech detected
+                    if rms > self.config.interrupt_threshold:
+                        consecutive_speech_chunks += 1
+                        if consecutive_speech_chunks >= self.config.interrupt_confirmation_chunks:
+                            print("\n⚠️  Interrupt detected!")
+                            self.interrupt_event.set()
+                            break
+                    else:
+                        consecutive_speech_chunks = 0
+
+                    # Small sleep to prevent busy waiting
+                    await asyncio.sleep(0.01)
+
+                except Exception as e:
+                    if self.config.debug_pipeline:
+                        print(f"\n⚠️  Monitor read error: {e}")
+                    break
+
+        except Exception as e:
+            if self.config.debug_pipeline:
+                print(f"\n⚠️  Monitor setup error: {e}")
+        finally:
+            if monitor_stream:
+                monitor_stream.stop_stream()
+                monitor_stream.close()
+
+    def start_interrupt_monitor(self):
+        """Start monitoring for interrupts"""
+        if self.config.enable_interrupts and not self._monitor_task:
+            self.interrupt_event.clear()
+            self._monitor_task = asyncio.create_task(self.monitor_for_interrupt())
+
+    async def stop_interrupt_monitor(self):
+        """Stop monitoring for interrupts"""
+        if self._monitor_task:
+            self.interrupt_event.set()  # Signal to stop
+            try:
+                await asyncio.wait_for(self._monitor_task, timeout=1.0)
+            except asyncio.TimeoutError:
+                self._monitor_task.cancel()
+                try:
+                    await self._monitor_task
+                except asyncio.CancelledError:
+                    pass
+            self._monitor_task = None
+
+    def was_interrupted(self) -> bool:
+        """Check if playback was interrupted"""
+        return self.interrupt_event.is_set()
