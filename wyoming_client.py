@@ -6,7 +6,7 @@ from typing import Optional
 from wyoming.client import AsyncClient
 from wyoming.audio import AudioChunk, AudioStart, AudioStop
 from wyoming.asr import Transcribe, Transcript
-from wyoming.tts import Synthesize
+from wyoming.tts import Synthesize, SynthesizeVoice
 from config import JetsonConfig
 
 
@@ -134,8 +134,11 @@ class PiperClient:
             raise RuntimeError("Not connected to Piper service")
         
         try:
-            # Send synthesis request
-            await self.client.write_event(Synthesize(text=text).event())
+            # Send synthesis request with optional voice parameter
+            synthesize_kwargs = {"text": text}
+            if self.config.piper_voice:
+                synthesize_kwargs["voice"] = SynthesizeVoice(name=self.config.piper_voice)
+            await self.client.write_event(Synthesize(**synthesize_kwargs).event())
             
             # Collect audio chunks
             audio_chunks = []

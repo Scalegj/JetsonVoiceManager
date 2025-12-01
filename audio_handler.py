@@ -3,13 +3,14 @@ import pyaudio
 import numpy as np
 import wave
 import io
+import asyncio
 from typing import Optional
 from config import JetsonConfig
 
 
 class AudioHandler:
     """Handle audio recording and playback"""
-    
+
     def __init__(self, config: JetsonConfig):
         self.config = config
         self.pyaudio = pyaudio.PyAudio()
@@ -141,7 +142,7 @@ class AudioHandler:
             debug: If True, print timing information for each sentence.
         """
         import time
-        stream = None
+        output_stream = None
         sentence_count = 0
 
         try:
@@ -162,9 +163,9 @@ class AudioHandler:
                     sample_width = wav_file.getsampwidth()
                     audio_frames = wav_file.readframes(wav_file.getnframes())
 
-                # Open stream on first sentence
-                if stream is None:
-                    stream = self.pyaudio.open(
+                # Open output stream on first sentence
+                if output_stream is None:
+                    output_stream = self.pyaudio.open(
                         format=self.pyaudio.get_format_from_width(sample_width),
                         channels=channels,
                         rate=sample_rate,
@@ -172,7 +173,7 @@ class AudioHandler:
                     )
 
                 # Write frames directly without closing stream
-                stream.write(audio_frames)
+                output_stream.write(audio_frames)
 
                 if debug:
                     playback_elapsed = time.time() - playback_start
@@ -183,9 +184,9 @@ class AudioHandler:
 
         finally:
             # Close stream when done
-            if stream is not None:
-                stream.stop_stream()
-                stream.close()
+            if output_stream is not None:
+                output_stream.stop_stream()
+                output_stream.close()
     
     def test_microphone(self) -> bool:
         """Test if microphone is accessible"""

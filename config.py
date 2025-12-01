@@ -16,7 +16,10 @@ class JetsonConfig:
     
     # Ollama settings
     ollama_model: str = "llama3.2"
-    
+
+    # Piper TTS settings
+    piper_voice: str = None  # Optional: specific voice model for Piper TTS
+
     # Audio settings
     sample_rate: int = 16000
     channels: int = 1
@@ -30,12 +33,15 @@ class JetsonConfig:
     num_tts_clients: int = 3  # Number of concurrent TTS connections for parallel synthesis
     debug_pipeline: bool = False  # Enable detailed pipeline timing diagnostics
 
+
     # System prompt for the chatbot
     system_prompt: str = (
-        "You are a helpful and friendly AI assistant designed to be a companion "
-        "for elderly individuals. You are patient, clear in your explanations, "
-        "and always respectful. Keep your responses concise and conversational, "
-        "as this is a voice conversation."
+        "You are a friendly AI assistant in a voice conversation. "
+        "Keep responses very short and natural - like talking to a friend. "
+        "Use 1-3 sentences maximum. Speak conversationally, not formally. "
+        "Avoid lists, bullet points, symbols, or anything that doesn't sound natural when spoken aloud. "
+        "Don't say things like 'here are some options' or use numbered lists. "
+        "Just speak naturally as if you're having a casual chat."
     )
     
     def __post_init__(self):

@@ -54,6 +54,10 @@ def parse_arguments():
     parser.add_argument("--system-prompt", type=str, default=system_prompt_default,
                        help="Custom system prompt")
 
+    piper_voice_default = file_config.get('piper_voice') if file_config else None
+    parser.add_argument("--piper-voice", type=str, default=piper_voice_default,
+                       help="Piper TTS voice model")
+
     return parser.parse_args()
 
 
@@ -77,6 +81,8 @@ async def main():
     }
     if args.system_prompt:
         config_kwargs["system_prompt"] = args.system_prompt
+    if args.piper_voice:
+        config_kwargs["piper_voice"] = args.piper_voice
 
     config = create_config(jetson_ip=args.jetson_ip, **config_kwargs)
 
