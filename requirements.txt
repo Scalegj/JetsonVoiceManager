@@ -6,3 +6,7 @@ aiohttp>=3.9.0
 
 # Optional but recommended
 python-dotenv>=1.0.0
+
+# Debug mode dependencies
+jiwer>=3.0.0          # Word Error Rate calculation
+tiktoken>=0.5.0       # Token counting for LLM metrics

@@ -58,6 +58,19 @@ def parse_arguments():
     parser.add_argument("--piper-voice", type=str, default=piper_voice_default,
                        help="Piper TTS voice model")
 
+    # Debug mode arguments
+    debug_mode_default = file_config.getboolean('debug_mode', False) if file_config else False
+    parser.add_argument("--debug-mode", action="store_true", default=debug_mode_default,
+                       help="Enable debug data collection to CSV")
+
+    debug_csv_default = file_config.get('debug_csv_path', 'debug_output.csv') if file_config else 'debug_output.csv'
+    parser.add_argument("--debug-csv", type=str, default=debug_csv_default,
+                       help="Debug CSV output file path")
+
+    debug_wer_default = file_config.getboolean('debug_wer_test_mode', False) if file_config else False
+    parser.add_argument("--debug-wer-test", action="store_true", default=debug_wer_default,
+                       help="Enable WER test mode with reference text entry")
+
     return parser.parse_args()
 
 
@@ -78,6 +91,9 @@ async def main():
         "ollama_model": args.model,
         "silence_threshold": args.silence_threshold,
         "silence_duration": args.silence_duration,
+        "debug_mode": args.debug_mode,
+        "debug_csv_path": args.debug_csv,
+        "debug_wer_test_mode": args.debug_wer_test,
     }
     if args.system_prompt:
         config_kwargs["system_prompt"] = args.system_prompt
@@ -89,7 +105,12 @@ async def main():
     # Display configuration
     print(f"\nJetson Voice Chat")
     print(f"Connecting to {config.jetson_ip}")
-    print(f"Model: {config.ollama_model}\n")
+    print(f"Model: {config.ollama_model}")
+    if config.debug_mode:
+        print(f"Debug Mode: Enabled (CSV: {config.debug_csv_path})")
+        if config.debug_wer_test_mode:
+            print(f"WER Test Mode: Enabled")
+    print()
 
     # Run voice chat
     voice_chat = VoiceChat(config)

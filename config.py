@@ -33,6 +33,10 @@ class JetsonConfig:
     num_tts_clients: int = 3  # Number of concurrent TTS connections for parallel synthesis
     debug_pipeline: bool = False  # Enable detailed pipeline timing diagnostics
 
+    # Debug mode settings
+    debug_mode: bool = False  # Enable comprehensive debug data collection
+    debug_csv_path: str = "debug_output.csv"  # CSV output file path
+    debug_wer_test_mode: bool = False  # Enable WER testing with reference text
 
     # System prompt for the chatbot
     system_prompt: str = (

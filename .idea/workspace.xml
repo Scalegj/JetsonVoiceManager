@@ -4,13 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a501d6e0-a017-42be-b20e-92584227b050" name="Changes" comment="Add Async Piper">
+    <list default="true" id="a501d6e0-a017-42be-b20e-92584227b050" name="Changes" comment="Add Interrupts (In Progress)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_handler.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/voice_chat.py" beforeDir="false" afterPath="$PROJECT_DIR$/voice_chat.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyoming_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/wyoming_client.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,6 +24,18 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Scalegj&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Scalegj/JetsonVoiceManager.git&quot;,
+    &quot;accountId&quot;: &quot;5d058d1e-097b-4f87-9923-b64182760226&quot;
+  }
+}</component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -51,6 +62,7 @@
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_all_services.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_connection.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_transcription.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
@@ -62,7 +74,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.sync&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -89,7 +101,12 @@
       <updated>1764523714982</updated>
       <workItem from="1764528169241" duration="26000" />
       <workItem from="1764528210068" duration="8279000" />
-      <workItem from="1764545875257" duration="3445000" />
+      <workItem from="1764545875257" duration="4917000" />
+      <workItem from="1764594621402" duration="269000" />
+      <workItem from="1765117875094" duration="6961000" />
+      <workItem from="1765128482230" duration="3301000" />
+      <workItem from="1765139075644" duration="7645000" />
+      <workItem from="1765168102836" duration="719000" />
     </task>
     <task id="LOCAL-00001" summary="Init Commit">
       <option name="closed" value="true" />
@@ -131,13 +148,44 @@
       <option name="project" value="LOCAL" />
       <updated>1764535967258</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Add Voice Customization">
+      <option name="closed" value="true" />
+      <created>1764549629751</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1764549629751</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Add Interrupts (In Progress)">
+      <option name="closed" value="true" />
+      <created>1764594796533</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1764594796533</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="master" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
     <option name="TAB_STATES">
       <map>
         <entry key="MAIN">
@@ -151,11 +199,14 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Init Commit" />
     <MESSAGE value="Add Async Piper" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add Async Piper" />
+    <MESSAGE value="Add Voice Customization" />
+    <MESSAGE value="Add Interrupts (In Progress)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add Interrupts (In Progress)" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$Main.coverage" NAME="Main Coverage Results" MODIFIED="1764549299064" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$Main.coverage" NAME="Main Coverage Results" MODIFIED="1765168126656" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$main.coverage" NAME="main Coverage Results" MODIFIED="1764530731835" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$test_transcription.coverage" NAME="test_transcription Coverage Results" MODIFIED="1765124161561" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$Current_File.coverage" NAME="Current File Coverage Results" MODIFIED="1764529369400" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

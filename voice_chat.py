@@ -5,10 +5,12 @@ import asyncio
 import re
 import time
 from typing import Optional
+from datetime import datetime
 from config import JetsonConfig
 from audio_handler import AudioHandler
 from wyoming_client import WhisperClient, PiperClient
 from ollama_client import OllamaClient
+from debug_logger import DebugLogger, TurnMetrics, TimingContext
 
 
 class VoiceChat:
@@ -22,6 +24,9 @@ class VoiceChat:
         self.piper_clients = [PiperClient(config) for _ in range(config.num_tts_clients)]
         self.ollama_client = OllamaClient(config)
         self.is_connected = False
+
+        # Initialize debug logger if debug mode enabled
+        self.debug_logger = DebugLogger(config.debug_csv_path) if config.debug_mode else None
     
     async def connect(self):
         """Connect to all services"""
@@ -56,18 +61,36 @@ class VoiceChat:
         if not self.is_connected:
             raise RuntimeError("Not connected to services")
 
+        # WER test mode: get reference text first
+        reference_text = self._get_reference_text() if self.debug_logger else None
+
         # Record audio
         audio_data = self.audio_handler.record_audio()
         if not audio_data:
             print("No audio recorded.")
             return True
 
-        # Transcribe
+        # Start end-to-end timer (from sending to Whisper until AI starts speaking)
+        e2e_timer = TimingContext() if self.debug_logger else None
+        if e2e_timer:
+            e2e_timer.__enter__()
+
+        # Transcribe with timing
         print("📝 Transcribing...")
+        transcription_timer = TimingContext() if self.debug_logger else None
         try:
+            if transcription_timer:
+                transcription_timer.__enter__()
+
             user_text = await self.whisper_client.transcribe(audio_data)
+
+            if transcription_timer:
+                transcription_timer.__exit__(None, None, None)
+
             if not user_text or not user_text.strip():
                 print("Could not transcribe audio.")
+                if e2e_timer:
+                    e2e_timer.__exit__(None, None, None)
                 return True
 
             print(f'You: "{user_text}"')
@@ -75,19 +98,37 @@ class VoiceChat:
             # Check for exit
             if user_text.lower().strip() in ["exit", "quit", "goodbye", "bye", "stop"]:
                 print("Goodbye!")
+                if e2e_timer:
+                    e2e_timer.__exit__(None, None, None)
                 return False
 
         except Exception as e:
             print(f"Transcription error: {e}")
+            if transcription_timer:
+                transcription_timer.__exit__(None, None, None)
+            if e2e_timer:
+                e2e_timer.__exit__(None, None, None)
             return True
 
-        # Get LLM response
+        # Get LLM response with timing
         print("🤔 Thinking...")
+        llm_timer = TimingContext() if self.debug_logger else None
         try:
+            if llm_timer:
+                llm_timer.__enter__()
+
             assistant_text = await self.ollama_client.chat(user_text)
+
+            if llm_timer:
+                llm_timer.__exit__(None, None, None)
+
             print(f'Assistant: "{assistant_text}"')
         except Exception as e:
             print(f"LLM error: {e}")
+            if llm_timer:
+                llm_timer.__exit__(None, None, None)
+            if e2e_timer:
+                e2e_timer.__exit__(None, None, None)
             return True
 
         # Synthesize and play (use first Piper client for non-streaming mode)
@@ -96,8 +137,33 @@ class VoiceChat:
             audio_response = await self.piper_clients[0].synthesize(assistant_text)
             if audio_response:
                 self.audio_handler.play_audio(audio_response)
+
         except Exception as e:
             print(f"Speech error: {e}")
+        finally:
+            # End-to-end timer ends when AI starts speaking (or tries to)
+            if e2e_timer:
+                e2e_timer.__exit__(None, None, None)
+
+        # Log debug metrics if enabled
+        if self.debug_logger:
+            try:
+                metrics = TurnMetrics(
+                    timestamp=datetime.now().isoformat(),
+                    reference_text=reference_text,
+                    reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
+                    transcribed_text=user_text,
+                    transcription_tokens=self.debug_logger.count_tokens(user_text),
+                    wer=self.debug_logger.calculate_wer(reference_text, user_text) if reference_text else None,
+                    transcription_latency_ms=transcription_timer.get_elapsed_ms(),
+                    llm_response=assistant_text,
+                    llm_response_tokens=self.debug_logger.count_tokens(assistant_text),
+                    end_to_end_latency_ms=e2e_timer.get_elapsed_ms()
+                )
+                self.debug_logger.log_turn(metrics)
+                print(f"\n[DEBUG] Metrics logged to {self.config.debug_csv_path}")
+            except Exception as e:
+                print(f"\n[DEBUG] Failed to log metrics: {e}")
 
         return True
     
@@ -138,17 +204,69 @@ class VoiceChat:
         finally:
             await self.disconnect()
 
+    def _get_reference_text(self) -> Optional[str]:
+        """
+        Get reference text for WER testing in interactive mode.
+
+        Returns:
+            Reference text or None if user wants to skip
+        """
+        if not self.config.debug_wer_test_mode:
+            return None
+
+        print("\n" + "="*60)
+        print("WER TEST MODE")
+        print("="*60)
+        print("Enter the reference text you will read into the microphone.")
+        print("This text will stay visible as a teleprompter.")
+        print("Press ENTER twice to skip WER testing for this turn.\n")
+
+        reference = input("Reference text: ").strip()
+
+        if not reference:
+            print("Skipping WER test for this turn.\n")
+            return None
+
+        print("\n" + "-"*60)
+        print("TELEPROMPTER - Read this text:")
+        print("-"*60)
+        print(f"\n{reference}\n")
+        print("-"*60)
+        print("Press ENTER when ready to start recording...")
+        input()
+
+        return reference
+
     async def _streaming_turn(self) -> bool:
         """Process one turn with streaming LLM response and concurrent TTS"""
+
+        # WER test mode: get reference text first
+        reference_text = self._get_reference_text() if self.debug_logger else None
+
         # Record and transcribe
         audio_data = self.audio_handler.record_audio()
         if not audio_data:
             return True
 
+        # Start end-to-end timer (from sending to Whisper until AI starts speaking)
+        e2e_timer = TimingContext() if self.debug_logger else None
+        if e2e_timer:
+            e2e_timer.__enter__()
+
         print("📝 Transcribing...")
+        transcription_timer = TimingContext() if self.debug_logger else None
+        if transcription_timer:
+            transcription_timer.__enter__()
+
         user_text = await self.whisper_client.transcribe(audio_data)
+
+        if transcription_timer:
+            transcription_timer.__exit__(None, None, None)
+
         if not user_text or not user_text.strip():
             print("Could not transcribe audio.")
+            if e2e_timer:
+                e2e_timer.__exit__(None, None, None)
             return True
 
         print(f'You: "{user_text}"')
@@ -156,10 +274,17 @@ class VoiceChat:
         # Check for exit
         if user_text.lower().strip() in ["exit", "quit", "goodbye", "bye", "stop"]:
             print("Goodbye!")
+            if e2e_timer:
+                e2e_timer.__exit__(None, None, None)
             return False
 
         # Stream LLM response with concurrent TTS processing
         print("Assistant: ", end="", flush=True)
+
+        # Start LLM timer
+        llm_timer = TimingContext() if self.debug_logger else None
+        if llm_timer:
+            llm_timer.__enter__()
 
         # Queue for audio chunks ready to play
         audio_queue = asyncio.Queue()
@@ -270,12 +395,15 @@ class VoiceChat:
         playback_count = [0]  # Track playback progress
 
         async def monitor_audio_start():
-            """Print speaking message when first audio is ready"""
+            """Print speaking message when first audio is ready and end e2e timer"""
             nonlocal speaking_started
             # Wait for first audio chunk
             while audio_queue.empty():
                 await asyncio.sleep(0.01)
             if not speaking_started:
+                # End-to-end timer ends when first audio is ready to play
+                if e2e_timer:
+                    e2e_timer.__exit__(None, None, None)
                 print("\n🗣️  Speaking...")
                 speaking_started = True
 
@@ -291,11 +419,13 @@ class VoiceChat:
         # Break only on sentence endings (.!?) for natural prosody
         sentence_pattern = re.compile(r'([^.!?]*[.!?]+)')
         detected_count = [0]
+        full_response = ""  # Collect full LLM response for debug logging
 
         try:
             async for chunk in self.ollama_client.chat_stream(user_text):
                 print(chunk, end="", flush=True)
                 buffer += chunk
+                full_response += chunk  # Accumulate for debug logging
 
                 # Check for complete sentences
                 while True:
@@ -315,6 +445,10 @@ class VoiceChat:
                     # Remove processed sentence from buffer (even if empty)
                     buffer = buffer[match.end():].lstrip()
 
+            # End LLM timer when streaming completes
+            if llm_timer:
+                llm_timer.__exit__(None, None, None)
+
             print()
 
             # Process any remaining text in buffer
@@ -323,6 +457,7 @@ class VoiceChat:
                 if self.config.debug_pipeline:
                     print(f"\n[LLM] Final fragment (sentence {detected_count[0]}), sending to TTS")
                 await sentence_queue.put(buffer.strip())
+                full_response += buffer  # Add final fragment
 
         finally:
             # Signal completion to workers
@@ -339,5 +474,29 @@ class VoiceChat:
                     await monitor_task
                 except asyncio.CancelledError:
                     pass
+
+            # Ensure e2e timer is exited (in case monitor task was cancelled before exiting it)
+            if e2e_timer and e2e_timer.elapsed_ms is None:
+                e2e_timer.__exit__(None, None, None)
+
+            # Log debug metrics if enabled
+            if self.debug_logger:
+                try:
+                    metrics = TurnMetrics(
+                        timestamp=datetime.now().isoformat(),
+                        reference_text=reference_text,
+                        reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
+                        transcribed_text=user_text,
+                        transcription_tokens=self.debug_logger.count_tokens(user_text),
+                        wer=self.debug_logger.calculate_wer(reference_text, user_text) if reference_text else None,
+                        transcription_latency_ms=transcription_timer.get_elapsed_ms() if transcription_timer else 0,
+                        llm_response=full_response,
+                        llm_response_tokens=self.debug_logger.count_tokens(full_response),
+                        end_to_end_latency_ms=e2e_timer.get_elapsed_ms() if e2e_timer else None
+                    )
+                    self.debug_logger.log_turn(metrics)
+                    print(f"\n[DEBUG] Metrics logged to {self.config.debug_csv_path}")
+                except Exception as e:
+                    print(f"\n[DEBUG] Failed to log metrics: {e}")
 
         return True
