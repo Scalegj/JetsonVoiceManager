@@ -1,0 +1,33 @@
+# JetsonCompanion configuration example
+# Copy to config.yml and adjust values
+
+# Host running the AI services
+# Use "localhost" when running inside Docker
+# Use the Jetson's IP when connecting from a separate PC
+jetson_ip: "192.168.1.100"
+
+# Service ports
+whisper_port: 10300    # Wyoming Whisper (STT)
+piper_port: 10200      # Wyoming Piper (TTS)
+ollama_port: 11434     # Ollama server
+
+# LLM model (Ollama tag)
+ollama_model: "llama3.2:3b"
+
+# Piper TTS voice (set to null to use default)
+piper_voice: "en_US-ryan-medium"
+
+# Audio settings
+sample_rate: 16000
+channels: 1
+silence_threshold: 500.0   # RMS threshold - increase in noisy environments
+silence_duration: 2.5      # Seconds of silence before stopping recording
+
+# System prompt - customize the AI's personality
+system_prompt: |
+  You are a friendly AI companion for an elderly individual who may be lonely.
+  You will be used in a voice conversation with them.
+  Keep responses very short and natural - like talking to a friend.
+  Use 1-3 sentences maximum. Speak conversationally, not formally.
+  Avoid lists, bullet points, symbols, or anything that doesn't sound natural when spoken aloud.
+  Just speak naturally as if you're having a casual chat.

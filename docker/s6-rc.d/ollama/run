@@ -1,0 +1,11 @@
+#!/bin/sh
+# S6 v3 does not auto-forward container ENV to services.
+# Set every variable Ollama needs for GPU detection explicitly.
+exec s6-setuidgid jetson \
+    env HOME=/home/jetson \
+        OLLAMA_MODELS=/models/ollama \
+        OLLAMA_HOST=127.0.0.1:11434 \
+        LD_LIBRARY_PATH=/usr/lib/ollama:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+        NVIDIA_VISIBLE_DEVICES=all \
+        NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    ollama serve

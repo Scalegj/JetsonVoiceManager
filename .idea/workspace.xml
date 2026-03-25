@@ -4,13 +4,54 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a501d6e0-a017-42be-b20e-92584227b050" name="Changes" comment="Add Voice Customization">
+    <list default="true" id="326a1922-b333-4afe-89fa-5cf073c32565" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.gitattributes" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.github/workflows/docker-build.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.github/workflows/test.yml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/JetsonVoiceWyoming.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/JetsonVoiceWyoming.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/configs/config.docker.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/configs/config.example.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker-compose.dev.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/gateway/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/gateway/static/index.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/gateway/webrtc_server.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/model-downloader/type" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/model-downloader/up" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/piper/dependencies.d/model-downloader" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/piper/run" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/piper/type" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/user/contents.d/webrtc-gateway" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/user/type" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/webrtc-gateway/dependencies.d/piper" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/webrtc-gateway/dependencies.d/whisper" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/webrtc-gateway/run" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/webrtc-gateway/type" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/whisper/dependencies.d/model-downloader" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/whisper/run" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/s6-rc.d/whisper/type" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/scripts/download-models.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/scripts/healthcheck.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker/scripts/smoke-test.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/audio_handler.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/config/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/config/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/debug_logger.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/services/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/services/llm.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/services/stt.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/services/tts.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/jetson_voice/voice_chat.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/JetsonVoiceWyoming.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/debug_output.csv" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -18,74 +59,25 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
-    <excluded-from-favorite>
-      <branch-storage>
-        <map>
-          <entry type="LOCAL">
-            <value>
-              <list>
-                <branch-info repo="$PROJECT_DIR$" source="master" />
-              </list>
-            </value>
-          </entry>
-        </map>
-      </branch-storage>
-    </excluded-from-favorite>
-    <option name="PREVIOUS_COMMIT_AUTHORS">
-      <list>
-        <option value="Gregory Scales &lt;244308@esj.org&gt;" />
-      </list>
-    </option>
-    <option name="RECENT_BRANCH_BY_REPOSITORY">
-      <map>
-        <entry key="$PROJECT_DIR$" value="master" />
-      </map>
-    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory">{
-  &quot;lastFilter&quot;: {
-    &quot;state&quot;: &quot;OPEN&quot;,
-    &quot;assignee&quot;: &quot;Scalegj&quot;
-  }
-}</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Scalegj/JetsonVoiceManager.git&quot;,
-    &quot;accountId&quot;: &quot;5d058d1e-097b-4f87-9923-b64182760226&quot;
-  }
-}</component>
-  <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
-  </component>
   <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
   &quot;associatedIndex&quot;: 1
 }</component>
-  <component name="ProjectId" id="36CwA6bit9p87HMmCTDgZHbDX8F" />
-  <component name="ProjectLevelVcsManager">
-    <ConfirmationsSetting value="2" id="Add" />
-  </component>
+  <component name="ProjectId" id="3AMKjWF7PSCfSPSdlkn3tszPaLm" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
-    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Docker.Dockerfile.executor&quot;: &quot;Run&quot;,
+    &quot;Docker.JetsonCompanion Dev.executor&quot;: &quot;Run&quot;,
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.$FileDir$.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.$FilePath$.executor&quot;: &quot;Run&quot;,
-    &quot;Python.Current File.executor&quot;: &quot;Run&quot;,
-    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_all_services.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_connection.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_transcription.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -93,10 +85,57 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;Docker&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="RunManager" selected="Docker.JetsonCompanion Dev">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="JetsonCompanion" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/jetson_voice" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/jetson_voice/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="JetsonCompanion Dev" type="docker-deploy" factoryName="docker-compose.yml" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="secondarySourceFiles">
+            <list>
+              <option value="docker-compose.dev.yml" />
+            </list>
+          </option>
+          <option name="sourceFilePath" value="docker-compose.yml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Docker.JetsonCompanion Dev" />
+      <item itemvalue="Python.main" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -107,110 +146,23 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="a501d6e0-a017-42be-b20e-92584227b050" name="Changes" comment="" />
-      <created>1764523714982</created>
+      <changelist id="326a1922-b333-4afe-89fa-5cf073c32565" name="Changes" comment="" />
+      <created>1772397136298</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1764523714982</updated>
-      <workItem from="1764528169241" duration="26000" />
-      <workItem from="1764528210068" duration="8279000" />
-      <workItem from="1764545875257" duration="4917000" />
-      <workItem from="1764594621402" duration="269000" />
-      <workItem from="1765117875094" duration="6961000" />
-      <workItem from="1765128482230" duration="3301000" />
-      <workItem from="1765139075644" duration="7645000" />
-      <workItem from="1765168102836" duration="719000" />
-      <workItem from="1765208139400" duration="1062000" />
-      <workItem from="1766080714425" duration="6313000" />
-      <workItem from="1767110997684" duration="3730000" />
-      <workItem from="1767194370573" duration="10020000" />
-      <workItem from="1767367570922" duration="4062000" />
-      <workItem from="1767556494511" duration="3299000" />
-      <workItem from="1767746080142" duration="2255000" />
-      <workItem from="1768140999525" duration="6413000" />
-      <workItem from="1768355100779" duration="2100000" />
-      <workItem from="1768422887002" duration="5044000" />
-      <workItem from="1768575649540" duration="4553000" />
-      <workItem from="1768761739498" duration="1271000" />
+      <updated>1772397136298</updated>
+      <workItem from="1772397138713" duration="7930000" />
+      <workItem from="1772456970889" duration="699000" />
+      <workItem from="1772465980494" duration="7365000" />
+      <workItem from="1772481392948" duration="1384000" />
+      <workItem from="1772993012916" duration="46000" />
     </task>
-    <task id="LOCAL-00001" summary="Init Commit">
-      <option name="closed" value="true" />
-      <created>1764532491637</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1764532491637</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Init Commit">
-      <option name="closed" value="true" />
-      <created>1764532499073</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1764532499073</updated>
-    </task>
-    <task id="LOCAL-00003" summary="Init Commit">
-      <option name="closed" value="true" />
-      <created>1764532531448</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1764532531448</updated>
-    </task>
-    <task id="LOCAL-00004" summary="Init Commit">
-      <option name="closed" value="true" />
-      <created>1764532536856</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1764532536856</updated>
-    </task>
-    <task id="LOCAL-00005" summary="Add Async Piper">
-      <option name="closed" value="true" />
-      <created>1764535967258</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1764535967258</updated>
-    </task>
-    <task id="LOCAL-00006" summary="Add Voice Customization">
-      <option name="closed" value="true" />
-      <created>1764549629751</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1764549629751</updated>
-    </task>
-    <task id="LOCAL-00007" summary="Add Interrupts (In Progress)">
-      <option name="closed" value="true" />
-      <created>1764594796533</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1764594796533</updated>
-    </task>
-    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
-    <option name="RECENT_FILTERS">
-      <map>
-        <entry key="Branch">
-          <value>
-            <list>
-              <RecentGroup>
-                <option name="FILTER_VALUES">
-                  <option value="master" />
-                </option>
-              </RecentGroup>
-            </list>
-          </value>
-        </entry>
-      </map>
-    </option>
     <option name="TAB_STATES">
       <map>
         <entry key="MAIN">
@@ -220,20 +172,5 @@
         </entry>
       </map>
     </option>
-  </component>
-  <component name="VcsManagerConfiguration">
-    <MESSAGE value="Init Commit" />
-    <MESSAGE value="Add Async Piper" />
-    <MESSAGE value="Add Voice Customization" />
-    <MESSAGE value="Add Interrupts (In Progress)" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add Interrupts (In Progress)" />
-  </component>
-  <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$main.coverage" NAME="main Coverage Results" MODIFIED="1764530731835" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$test_transcription.coverage" NAME="test_transcription Coverage Results" MODIFIED="1765124161561" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$Current_File.coverage" NAME="Current File Coverage Results" MODIFIED="1764529369400" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/JetsonVoiceManager$main.coverage" NAME="main Coverage Results" MODIFIED="1768586163306" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/JetsonVoiceManager$config.coverage" NAME="config Coverage Results" MODIFIED="1768355909853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/JetsonVoiceWyoming$Main.coverage" NAME="Main Coverage Results" MODIFIED="1765168126656" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

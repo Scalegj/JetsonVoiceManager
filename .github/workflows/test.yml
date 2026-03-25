@@ -1,0 +1,67 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies (no GPU deps)
+        run: |
+          pip install --upgrade pip
+          pip install aiohttp>=3.9.0 wyoming>=1.5.0 pytest pytest-asyncio
+
+      - name: Test imports
+        run: |
+          PYTHONPATH=src python -c "
+          from jetson_voice.config.models import AppConfig, create_config
+          from jetson_voice.services.llm import OllamaClient
+          print('All imports OK')
+          "
+
+      - name: Test config defaults
+        run: |
+          PYTHONPATH=src python -c "
+          from jetson_voice.config.models import AppConfig
+          cfg = AppConfig()
+          assert cfg.whisper_port == 10300
+          assert cfg.piper_port == 10200
+          assert cfg.ollama_port == 11434
+          assert cfg.ollama_base_url == 'http://localhost:11434'
+          assert cfg.whisper_uri == 'tcp://localhost:10300'
+          print('Config tests OK')
+          "
+
+      - name: Test service factory
+        run: |
+          PYTHONPATH=src python -c "
+          from jetson_voice.config.models import AppConfig
+          from jetson_voice.services import create_llm_client, OllamaClient
+          cfg = AppConfig()
+          client = create_llm_client(cfg)
+          assert isinstance(client, OllamaClient)
+          print('Service factory tests OK')
+          "

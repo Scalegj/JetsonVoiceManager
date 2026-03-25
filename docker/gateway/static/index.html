@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jetson Voice Companion</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+    }
+
+    #status {
+      font-size: 1rem;
+      color: #64748b;
+      min-height: 1.5rem;
+      text-align: center;
+    }
+
+    .btn {
+      padding: 0.9rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #connectBtn  { background: #3b82f6; color: white; }
+    #connectBtn:hover:not(:disabled) { background: #2563eb; }
+
+    #talkBtn {
+      background: #22c55e;
+      color: white;
+      display: none;
+      padding: 1.4rem 3.5rem;
+      font-size: 1.3rem;
+    }
+    #talkBtn.recording { background: #ef4444; }
+
+    #disconnectBtn {
+      background: #475569;
+      color: white;
+      display: none;
+    }
+
+    .pulse {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 1.2s ease-in-out infinite;
+      display: none;
+    }
+    .pulse.speaking { background: #3b82f6; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.25); opacity: 0.6; }
+    }
+
+    #log {
+      width: min(600px, 90vw);
+      max-height: 200px;
+      overflow-y: auto;
+      background: #1e293b;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    #log p { border-bottom: 1px solid #334155; padding: 0.25rem 0; }
+    #log p:last-child { border: none; }
+  </style>
+</head>
+<body>
+  <h1>Jetson Voice Companion</h1>
+
+  <div class="pulse" id="pulse"></div>
+
+  <p id="status">Click Connect to start.</p>
+
+  <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
+    <button class="btn" id="connectBtn">Connect</button>
+    <button class="btn" id="talkBtn">Hold to Talk</button>
+    <button class="btn" id="disconnectBtn">Disconnect</button>
+  </div>
+
+  <div id="log"></div>
+
+<script>
+  const connectBtn    = document.getElementById('connectBtn');
+  const talkBtn       = document.getElementById('talkBtn');
+  const disconnectBtn = document.getElementById('disconnectBtn');
+  const statusEl      = document.getElementById('status');
+  const pulseEl       = document.getElementById('pulse');
+  const logEl         = document.getElementById('log');
+
+  let ws            = null;
+  let stream        = null;
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let busy          = false;   // true while pipeline is running
+
+  function addLog(msg) {
+    const p = document.createElement('p');
+    p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.prepend(p);
+  }
+
+  function setStatus(msg) {
+    statusEl.textContent = msg;
+    addLog(msg);
+  }
+
+  // ── Connect ───────────────────────────────────────────────────────────────
+
+  async function connect() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('Microphone unavailable: open this page over HTTPS or from localhost.');
+      return;
+    }
+
+    connectBtn.disabled = true;
+    setStatus('Requesting microphone access...');
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      setStatus(`Microphone error: ${e.message}`);
+      connectBtn.disabled = false;
+      return;
+    }
+
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+      setStatus('Ready — hold the button and speak.');
+      connectBtn.style.display    = 'none';
+      talkBtn.style.display       = 'inline-block';
+      disconnectBtn.style.display = 'inline-block';
+    };
+
+    ws.onmessage = async (e) => {
+      busy = false;
+      talkBtn.disabled = false;
+
+      if (e.data instanceof ArrayBuffer) {
+        const blob = new Blob([e.data], { type: 'audio/wav' });
+        const url  = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        pulseEl.classList.add('speaking');
+        pulseEl.style.display = 'block';
+        setStatus('AI speaking...');
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          pulseEl.classList.remove('speaking');
+          pulseEl.style.display = 'none';
+          setStatus('Ready — hold the button and speak.');
+        };
+        audio.play().catch(err => setStatus(`Playback error: ${err.message}`));
+      } else {
+        const data = JSON.parse(e.data);
+        pulseEl.style.display = 'none';
+        if (data.status === 'no_speech') {
+          setStatus('No speech detected — try again.');
+        } else if (data.error) {
+          setStatus(`Error: ${data.error}`);
+        }
+      }
+    };
+
+    ws.onclose = () => {
+      setStatus('Disconnected.');
+      resetUI();
+    };
+    ws.onerror = () => setStatus('WebSocket error — check server logs.');
+  }
+
+  // ── Push-to-talk ──────────────────────────────────────────────────────────
+
+  function startRecording() {
+    if (!stream || busy) return;
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = sendAudio;
+    mediaRecorder.start();
+    talkBtn.classList.add('recording');
+    talkBtn.textContent = 'Listening...';
+    pulseEl.classList.remove('speaking');
+    pulseEl.style.display = 'block';
+  }
+
+  function stopRecording() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+    mediaRecorder.stop();
+    talkBtn.classList.remove('recording');
+    talkBtn.textContent = 'Hold to Talk';
+    pulseEl.style.display = 'none';
+  }
+
+  async function sendAudio() {
+    if (audioChunks.length === 0 || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    setStatus('Processing...');
+    busy = true;
+    talkBtn.disabled = true;
+
+    try {
+      // Decode browser audio (webm/opus) → resample to 16kHz mono PCM Int16
+      const blob        = new Blob(audioChunks, { type: 'audio/webm' });
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const decodeCtx = new AudioContext();
+      const decoded   = await decodeCtx.decodeAudioData(arrayBuffer);
+      await decodeCtx.close();
+
+      const sampleRate  = 16000;
+      const offlineCtx  = new OfflineAudioContext(1, Math.ceil(decoded.duration * sampleRate), sampleRate);
+      const source      = offlineCtx.createBufferSource();
+      source.buffer     = decoded;
+      source.connect(offlineCtx.destination);
+      source.start();
+      const resampled   = await offlineCtx.startRendering();
+
+      const float32 = resampled.getChannelData(0);
+      const int16   = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32768)));
+      }
+
+      ws.send(int16.buffer);
+    } catch (err) {
+      setStatus(`Audio processing error: ${err.message}`);
+      busy = false;
+      talkBtn.disabled = false;
+    }
+  }
+
+  // Mouse + touch events for the talk button
+  talkBtn.addEventListener('mousedown',  startRecording);
+  talkBtn.addEventListener('mouseup',    stopRecording);
+  talkBtn.addEventListener('mouseleave', stopRecording);
+  talkBtn.addEventListener('touchstart', e => { e.preventDefault(); startRecording(); }, { passive: false });
+  talkBtn.addEventListener('touchend',   e => { e.preventDefault(); stopRecording();  }, { passive: false });
+
+  // ── Disconnect ────────────────────────────────────────────────────────────
+
+  function resetUI() {
+    connectBtn.disabled     = false;
+    connectBtn.style.display    = 'inline-block';
+    talkBtn.style.display       = 'none';
+    disconnectBtn.style.display = 'none';
+    pulseEl.style.display       = 'none';
+    busy = false;
+  }
+
+  disconnectBtn.addEventListener('click', () => {
+    if (ws) { ws.close(); ws = null; }
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    resetUI();
+    setStatus('Click Connect to start.');
+  });
+
+  connectBtn.addEventListener('click', connect);
+
+  // Health check on load
+  fetch('/health')
+    .then(r => r.json())
+    .then(d => addLog(`Service health: ${JSON.stringify(d)}`))
+    .catch(() => addLog('Health check failed — is the gateway running?'));
+</script>
+</body>
+</html>

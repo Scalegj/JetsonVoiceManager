@@ -1,0 +1,4 @@
+# Ensure shell scripts and S6 service files always use LF (Linux line endings)
+*.sh          text eol=lf
+docker/**     text eol=lf
+Dockerfile    text eol=lf

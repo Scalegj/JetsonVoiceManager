@@ -1,0 +1,20 @@
+# Default configuration inside the Docker container
+# All services are on localhost (co-located in the same container)
+jetson_ip: "localhost"
+
+# Service ports (must match S6 service definitions)
+whisper_port: 10300
+piper_port: 10200
+ollama_port: 11434
+
+# Model - should match OLLAMA_MODEL env var
+ollama_model: "llama3.2:3b"
+
+# Audio
+sample_rate: 16000
+channels: 1
+silence_threshold: 500.0
+silence_duration: 2.5
+
+# Performance
+num_tts_clients: 3

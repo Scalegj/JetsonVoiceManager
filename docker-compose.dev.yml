@@ -1,0 +1,41 @@
+# Development overrides - faster iteration, smaller models
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+name: jetson-voice-dev
+
+services:
+  voice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jetson-voice:dev
+    # production compose sets runtime: nvidia (Jetson/Linux only).
+    # On Docker Desktop, runtime: runc (the default) supports GPU via
+    # deploy.resources.reservations.devices without the NVIDIA Container Toolkit.
+    runtime: runc
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - WHISPER_MODEL=tiny.en
+      - PIPER_VOICE=en_US-ryan-medium
+      - OLLAMA_MODEL=llama3.2:1b
+      - LOG_LEVEL=debug
+    volumes:
+      # Mount source code for live editing
+      - ./src/jetson_voice:/app/jetson_voice:ro
+      - ./docker/gateway:/app/gateway:ro
+      - models-dev:/models
+    ports:
+      - "8080:8080"
+      - "10300:10300"  # Whisper (debug access)
+      - "10200:10200"  # Piper (debug access)
+      - "11434:11434"  # Ollama (debug access)
+      - "50000-50020:50000-50020/udp"  # WebRTC ICE media (UDP)
+
+volumes:
+  models-dev:
+    name: jetson-voice-models-dev

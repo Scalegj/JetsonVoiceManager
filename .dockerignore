@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Python cache
+__pycache__
+*.py[cod]
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+
+# Virtual environments
+.venv
+venv
+env
+
+# Development / local config
+config.ini
+debug_output.csv
+*.log
+
+# Models (downloaded at runtime)
+models/
+
+# Docs
+docs/
+*.md
+!README.md
+
+# CI
+.github/
+
+# Test data
+tests/

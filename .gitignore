@@ -51,3 +51,16 @@ config.ini
 # OS
 .DS_Store
 Thumbs.db
+
+# Debug output
+debug_output.csv
+
+# Docker build artifacts
+*.tar.gz
+
+# Models (downloaded at runtime)
+models/
+
+# Local config overrides
+config.yml
+configs/config.local.yml
