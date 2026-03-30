@@ -15,7 +15,7 @@ from debug_logger import DebugLogger, TurnMetrics, TimingContext
 
 class VoiceChat:
     """Orchestrates the voice chat conversation"""
-    
+
     def __init__(self, config: JetsonConfig):
         self.config = config
         self.audio_handler = AudioHandler(config)
@@ -24,10 +24,11 @@ class VoiceChat:
         self.piper_clients = [PiperClient(config) for _ in range(config.num_tts_clients)]
         self.ollama_client = OllamaClient(config)
         self.is_connected = False
+        self.turn_number = 0  # 1-based counter incremented at the start of each turn
 
         # Initialize debug logger if debug mode enabled
         self.debug_logger = DebugLogger(config.debug_csv_path) if config.debug_mode else None
-    
+
     async def connect(self):
         """Connect to all services"""
         print("Connecting...")
@@ -55,11 +56,13 @@ class VoiceChat:
         await self.ollama_client.disconnect()
         self.audio_handler.close()
         self.is_connected = False
-    
+
     async def process_turn(self) -> bool:
-        """Process one conversation turn. Returns False if user wants to exit."""
+        """Process one conversation turn (non-streaming). Returns False if user wants to exit."""
         if not self.is_connected:
             raise RuntimeError("Not connected to services")
+
+        self.turn_number += 1
 
         # WER test mode: get reference text first
         reference_text = self._get_reference_text() if self.debug_logger else None
@@ -70,95 +73,106 @@ class VoiceChat:
             print("No audio recorded.")
             return True
 
-        # Start end-to-end timer (from sending to Whisper until AI starts speaking)
-        e2e_timer = TimingContext() if self.debug_logger else None
-        if e2e_timer:
-            e2e_timer.__enter__()
+        # Compute input audio duration from raw PCM bytes
+        audio_input_duration_ms = DebugLogger.pcm_duration_ms(
+            audio_data, self.config.sample_rate, self.config.channels
+        ) if self.debug_logger else 0.0
 
-        # Transcribe with timing
+        # TTFA timer: from end-of-recording until the first audio chunk is ready for playback.
+        # This is the latency the user perceives as "waiting for a response".
+        # Covers: transcription + LLM inference + TTS synthesis (all sequential in non-streaming mode).
+        ttfa_start = time.perf_counter() if self.debug_logger else None
+
+        # --- Transcription ---
         print("📝 Transcribing...")
-        transcription_timer = TimingContext() if self.debug_logger else None
+        transcription_timer = TimingContext()
         try:
-            if transcription_timer:
-                transcription_timer.__enter__()
-
-            user_text = await self.whisper_client.transcribe(audio_data)
-
-            if transcription_timer:
-                transcription_timer.__exit__(None, None, None)
+            with transcription_timer:
+                user_text = await self.whisper_client.transcribe(audio_data)
 
             if not user_text or not user_text.strip():
                 print("Could not transcribe audio.")
-                if e2e_timer:
-                    e2e_timer.__exit__(None, None, None)
                 return True
 
             print(f'You: "{user_text}"')
 
-            # Check for exit
             if user_text.lower().strip() in ["exit", "quit", "goodbye", "bye", "stop"]:
                 print("Goodbye!")
-                if e2e_timer:
-                    e2e_timer.__exit__(None, None, None)
                 return False
 
         except Exception as e:
             print(f"Transcription error: {e}")
-            if transcription_timer:
-                transcription_timer.__exit__(None, None, None)
-            if e2e_timer:
-                e2e_timer.__exit__(None, None, None)
             return True
 
-        # Get LLM response with timing
+        # --- LLM inference ---
         print("🤔 Thinking...")
-        llm_timer = TimingContext() if self.debug_logger else None
+        llm_timer = TimingContext()
         try:
-            if llm_timer:
-                llm_timer.__enter__()
-
-            assistant_text = await self.ollama_client.chat(user_text)
-
-            if llm_timer:
-                llm_timer.__exit__(None, None, None)
-
+            with llm_timer:
+                assistant_text = await self.ollama_client.chat(user_text)
             print(f'Assistant: "{assistant_text}"')
         except Exception as e:
             print(f"LLM error: {e}")
-            if llm_timer:
-                llm_timer.__exit__(None, None, None)
-            if e2e_timer:
-                e2e_timer.__exit__(None, None, None)
             return True
 
-        # Synthesize and play (use first Piper client for non-streaming mode)
+        # --- TTS synthesis ---
         print("🗣️  Speaking...")
+        tts_timer = TimingContext()
+        audio_response = None
+        time_to_first_audio_ms = None
         try:
-            audio_response = await self.piper_clients[0].synthesize(assistant_text)
+            with tts_timer:
+                audio_response = await self.piper_clients[0].synthesize(assistant_text)
+
+            # TTFA ends here: synthesis is done, audio is ready.
+            # We stop the clock BEFORE play_audio() so we measure latency, not playback duration.
+            if ttfa_start is not None:
+                time_to_first_audio_ms = (time.perf_counter() - ttfa_start) * 1000.0
+
             if audio_response:
                 self.audio_handler.play_audio(audio_response)
 
         except Exception as e:
             print(f"Speech error: {e}")
-        finally:
-            # End-to-end timer ends when AI starts speaking (or tries to)
-            if e2e_timer:
-                e2e_timer.__exit__(None, None, None)
+            if ttfa_start is not None and time_to_first_audio_ms is None:
+                time_to_first_audio_ms = (time.perf_counter() - ttfa_start) * 1000.0
 
-        # Log debug metrics if enabled
+        # --- Log debug metrics ---
         if self.debug_logger:
             try:
+                llm_latency_ms = llm_timer.get_elapsed_ms() or 0.0
+                # Use Ollama's server-reported token counts — exact for the model in use
+                ollama_stats = self.ollama_client.last_stats
+                llm_response_tokens = ollama_stats.get('eval_count')
+                llm_prompt_tokens = ollama_stats.get('prompt_eval_count')
+                # tokens/sec from server-side timing (eval_duration is nanoseconds)
+                eval_ns = ollama_stats.get('eval_duration_ns')
+                llm_tokens_per_second = (
+                    llm_response_tokens / (eval_ns / 1e9)
+                    if llm_response_tokens and eval_ns and eval_ns > 0
+                    else None
+                )
+
                 metrics = TurnMetrics(
+                    turn_number=self.turn_number,
                     timestamp=datetime.now().isoformat(),
-                    reference_text=reference_text,
-                    reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
+                    audio_input_duration_ms=audio_input_duration_ms,
                     transcribed_text=user_text,
                     transcription_tokens=self.debug_logger.count_tokens(user_text),
+                    transcription_latency_ms=transcription_timer.get_elapsed_ms() or 0.0,
+                    reference_text=reference_text,
+                    reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
                     wer=self.debug_logger.calculate_wer(reference_text, user_text) if reference_text else None,
-                    transcription_latency_ms=transcription_timer.get_elapsed_ms(),
+                    llm_latency_ms=llm_latency_ms,
+                    llm_time_to_first_token_ms=None,  # N/A in non-streaming mode
+                    llm_prompt_tokens=llm_prompt_tokens,
                     llm_response=assistant_text,
-                    llm_response_tokens=self.debug_logger.count_tokens(assistant_text),
-                    end_to_end_latency_ms=e2e_timer.get_elapsed_ms()
+                    llm_response_tokens=llm_response_tokens,
+                    llm_response_chars=len(assistant_text),
+                    llm_tokens_per_second=llm_tokens_per_second,
+                    tts_latency_ms=tts_timer.get_elapsed_ms(),
+                    response_audio_duration_ms=DebugLogger.wav_duration_ms(audio_response) if audio_response else None,
+                    time_to_first_audio_ms=time_to_first_audio_ms,
                 )
                 self.debug_logger.log_turn(metrics)
                 print(f"\n[DEBUG] Metrics logged to {self.config.debug_csv_path}")
@@ -166,7 +180,7 @@ class VoiceChat:
                 print(f"\n[DEBUG] Failed to log metrics: {e}")
 
         return True
-    
+
     async def run(self, streaming: bool = False):
         """Run the main conversation loop"""
         try:
@@ -238,7 +252,9 @@ class VoiceChat:
         return reference
 
     async def _streaming_turn(self) -> bool:
-        """Process one turn with streaming LLM response and concurrent TTS"""
+        """Process one turn with streaming LLM response and concurrent TTS."""
+
+        self.turn_number += 1
 
         # WER test mode: get reference text first
         reference_text = self._get_reference_text() if self.debug_logger else None
@@ -248,11 +264,17 @@ class VoiceChat:
         if not audio_data:
             return True
 
-        # Start end-to-end timer (from sending to Whisper until AI starts speaking)
-        e2e_timer = TimingContext() if self.debug_logger else None
-        if e2e_timer:
-            e2e_timer.__enter__()
+        # Compute input audio duration
+        audio_input_duration_ms = DebugLogger.pcm_duration_ms(
+            audio_data, self.config.sample_rate, self.config.channels
+        ) if self.debug_logger else 0.0
 
+        # TTFA timer: from end-of-recording to first audio chunk ready.
+        # In streaming mode, LLM and TTS overlap, so TTFA < llm_latency + tts_latency.
+        e2e_start = time.perf_counter() if self.debug_logger else None
+        first_audio_time_ref = [None]  # set inside synthesis_coordinator on first audio put
+
+        # --- Transcription ---
         print("📝 Transcribing...")
         transcription_timer = TimingContext() if self.debug_logger else None
         if transcription_timer:
@@ -265,51 +287,57 @@ class VoiceChat:
 
         if not user_text or not user_text.strip():
             print("Could not transcribe audio.")
-            if e2e_timer:
-                e2e_timer.__exit__(None, None, None)
             return True
 
         print(f'You: "{user_text}"')
 
-        # Check for exit
         if user_text.lower().strip() in ["exit", "quit", "goodbye", "bye", "stop"]:
             print("Goodbye!")
-            if e2e_timer:
-                e2e_timer.__exit__(None, None, None)
             return False
 
-        # Stream LLM response with concurrent TTS processing
+        # --- Streaming LLM + concurrent TTS ---
         print("Assistant: ", end="", flush=True)
 
-        # Start LLM timer
+        # Shared mutable state for timing across closures
+        tts_start_ref = [None]          # perf_counter when first sentence is sent to TTS
+        audio_duration_ref = [0.0]      # accumulates total synthesized audio duration (ms)
+        llm_ttft_ref = [None]           # ms from LLM request to first token received
+
+        # LLM timer starts here (covers full streaming duration)
         llm_timer = TimingContext() if self.debug_logger else None
         if llm_timer:
             llm_timer.__enter__()
+        llm_request_start = time.perf_counter()
 
-        # Queue for audio chunks ready to play
+        # Queue for ordered audio chunks ready to play
         audio_queue = asyncio.Queue()
 
-        # Task to handle TTS synthesis with concurrent client pool
+        # --- TTS worker with concurrent client pool ---
         async def tts_worker():
             """Process sentences for TTS using multiple concurrent clients"""
             sentence_queue = asyncio.Queue()
-            sentence_count = [0]  # Use list for mutable counter
+            sentence_count = [0]
 
             async def synthesize_one(text, order_id, client_id):
                 """Synthesize one sentence using a specific Piper client"""
                 try:
                     if self.config.debug_pipeline:
                         print(f"\n[TTS-{client_id}] Starting synthesis of sentence {order_id}...")
-                    start_time = time.time()
+                    start_time = time.perf_counter()
 
-                    # Use assigned Piper client
-                    audio_data = await self.piper_clients[client_id].synthesize(text)
+                    audio = await self.piper_clients[client_id].synthesize(text)
 
-                    elapsed = time.time() - start_time
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000.0
                     if self.config.debug_pipeline:
-                        print(f"[TTS-{client_id}] Sentence {order_id} synthesized in {elapsed:.2f}s")
+                        print(f"[TTS-{client_id}] Sentence {order_id} synthesized in {elapsed_ms:.0f}ms")
 
-                    return (order_id, audio_data)
+                    # Accumulate total response audio duration
+                    if audio and self.debug_logger:
+                        dur = DebugLogger.wav_duration_ms(audio)
+                        if dur:
+                            audio_duration_ref[0] += dur
+
+                    return (order_id, audio)
                 except Exception as e:
                     print(f"\n⚠️  TTS-{client_id} error: {e}")
                     return (order_id, None)
@@ -335,14 +363,16 @@ class VoiceChat:
                                 # Wait for all active tasks to complete
                                 if active_tasks:
                                     done_tasks = await asyncio.gather(*active_tasks.keys())
-                                    for order_id, audio_data in done_tasks:
-                                        pending_audio[order_id] = audio_data
+                                    for order_id, audio in done_tasks:
+                                        pending_audio[order_id] = audio
 
                                 # Drain pending audio in order
                                 while next_to_play in pending_audio:
-                                    audio_data = pending_audio.pop(next_to_play)
-                                    if audio_data:
-                                        await audio_queue.put(audio_data)
+                                    audio = pending_audio.pop(next_to_play)
+                                    if audio:
+                                        if first_audio_time_ref[0] is None and e2e_start is not None:
+                                            first_audio_time_ref[0] = time.perf_counter()
+                                        await audio_queue.put(audio)
                                     next_to_play += 1
 
                                 await audio_queue.put(None)  # Signal playback done
@@ -368,66 +398,50 @@ class VoiceChat:
                         )
 
                         for task in done:
-                            order_id, audio_data = await task
+                            order_id, audio = await task
                             _, client_id = active_tasks.pop(task)
                             available_clients.append(client_id)  # Return client to pool
 
-                            pending_audio[order_id] = audio_data
+                            pending_audio[order_id] = audio
 
                             # Send audio in order
                             while next_to_play in pending_audio:
-                                audio_data = pending_audio.pop(next_to_play)
-                                if audio_data:
-                                    await audio_queue.put(audio_data)
+                                audio = pending_audio.pop(next_to_play)
+                                if audio:
+                                    if first_audio_time_ref[0] is None and e2e_start is not None:
+                                        first_audio_time_ref[0] = time.perf_counter()
+                                    await audio_queue.put(audio)
                                 next_to_play += 1
 
-                    # Small yield to prevent busy waiting
-                    await asyncio.sleep(0.001)
+                    await asyncio.sleep(0.001)  # Yield to prevent busy-wait
 
             return sentence_queue, asyncio.create_task(synthesis_coordinator())
 
-
-        # Start workers
+        # Start TTS workers
         sentence_queue, tts_task = await tts_worker()
 
-        # Start continuous audio player (no gaps between sentences)
-        speaking_started = False
-        playback_count = [0]  # Track playback progress
-
-        async def monitor_audio_start():
-            """Print speaking message when first audio is ready and end e2e timer"""
-            nonlocal speaking_started
-            # Wait for first audio chunk
-            while audio_queue.empty():
-                await asyncio.sleep(0.01)
-            if not speaking_started:
-                # End-to-end timer ends when first audio is ready to play
-                if e2e_timer:
-                    e2e_timer.__exit__(None, None, None)
-                print("\n🗣️  Speaking...")
-                speaking_started = True
-
-        async def audio_player_with_timing():
-            """Play audio with timing information"""
+        async def audio_player():
             await self.audio_handler.play_audio_stream(audio_queue, debug=self.config.debug_pipeline)
 
-        monitor_task = asyncio.create_task(monitor_audio_start())
-        player_task = asyncio.create_task(audio_player_with_timing())
+        player_task = asyncio.create_task(audio_player())
 
-        # Stream LLM and extract sentences
+        # --- Stream LLM response and dispatch sentences to TTS ---
         buffer = ""
-        # Break only on sentence endings (.!?) for natural prosody
         sentence_pattern = re.compile(r'([^.!?]*[.!?]+)')
         detected_count = [0]
-        full_response = ""  # Collect full LLM response for debug logging
+        full_response = ""
 
         try:
             async for chunk in self.ollama_client.chat_stream(user_text):
+                # Capture time-to-first-token on first chunk
+                if self.debug_logger and llm_ttft_ref[0] is None:
+                    llm_ttft_ref[0] = (time.perf_counter() - llm_request_start) * 1000.0
+
                 print(chunk, end="", flush=True)
                 buffer += chunk
-                full_response += chunk  # Accumulate for debug logging
+                full_response += chunk
 
-                # Check for complete sentences
+                # Dispatch complete sentences to TTS
                 while True:
                     match = sentence_pattern.search(buffer)
                     if not match:
@@ -436,63 +450,91 @@ class VoiceChat:
                     sentence = match.group(1).strip()
                     if sentence:
                         detected_count[0] += 1
+                        # Record when TTS starts receiving its first sentence
+                        if self.debug_logger and tts_start_ref[0] is None:
+                            tts_start_ref[0] = time.perf_counter()
                         if self.config.debug_pipeline:
                             print(f"\n[LLM] Sentence {detected_count[0]} complete, sending to TTS")
                         await sentence_queue.put(sentence)
                         if self.config.debug_pipeline:
-                            print("Assistant: ", end="", flush=True)  # Resume printing
+                            print("Assistant: ", end="", flush=True)
 
-                    # Remove processed sentence from buffer (even if empty)
                     buffer = buffer[match.end():].lstrip()
 
-            # End LLM timer when streaming completes
+            # LLM streaming complete
             if llm_timer:
                 llm_timer.__exit__(None, None, None)
 
             print()
 
-            # Process any remaining text in buffer
+            # Dispatch any remaining text fragment
             if buffer.strip():
                 detected_count[0] += 1
+                if self.debug_logger and tts_start_ref[0] is None:
+                    tts_start_ref[0] = time.perf_counter()
                 if self.config.debug_pipeline:
                     print(f"\n[LLM] Final fragment (sentence {detected_count[0]}), sending to TTS")
                 await sentence_queue.put(buffer.strip())
-                full_response += buffer  # Add final fragment
+                full_response += buffer
 
         finally:
-            # Signal completion to workers
+            # Signal TTS workers to finish up
             await sentence_queue.put(None)
 
-            # Wait for all synthesis and playback to complete
+            # Wait for all synthesis to complete, then record TTS end time
             await tts_task
+            tts_end_time = time.perf_counter()
+
+            # Wait for playback to finish
             await player_task
 
-            # Cancel monitor task if still running
-            if not monitor_task.done():
-                monitor_task.cancel()
-                try:
-                    await monitor_task
-                except asyncio.CancelledError:
-                    pass
+            # Ensure llm timer is closed (in case of exception before the loop ended)
+            if llm_timer and llm_timer.elapsed_ms is None:
+                llm_timer.__exit__(None, None, None)
 
-            # Ensure e2e timer is exited (in case monitor task was cancelled before exiting it)
-            if e2e_timer and e2e_timer.elapsed_ms is None:
-                e2e_timer.__exit__(None, None, None)
-
-            # Log debug metrics if enabled
+            # --- Log debug metrics ---
             if self.debug_logger:
                 try:
+                    llm_latency_ms = llm_timer.get_elapsed_ms() or 0.0
+                    # Use Ollama's server-reported token counts — exact for the model in use
+                    ollama_stats = self.ollama_client.last_stats
+                    llm_response_tokens = ollama_stats.get('eval_count')
+                    llm_prompt_tokens = ollama_stats.get('prompt_eval_count')
+                    eval_ns = ollama_stats.get('eval_duration_ns')
+                    llm_tokens_per_second = (
+                        llm_response_tokens / (eval_ns / 1e9)
+                        if llm_response_tokens and eval_ns and eval_ns > 0
+                        else None
+                    )
+
+                    tts_latency_ms = (
+                        (tts_end_time - tts_start_ref[0]) * 1000.0
+                        if tts_start_ref[0] is not None else None
+                    )
+
                     metrics = TurnMetrics(
+                        turn_number=self.turn_number,
                         timestamp=datetime.now().isoformat(),
-                        reference_text=reference_text,
-                        reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
+                        audio_input_duration_ms=audio_input_duration_ms,
                         transcribed_text=user_text,
                         transcription_tokens=self.debug_logger.count_tokens(user_text),
+                        transcription_latency_ms=transcription_timer.get_elapsed_ms() if transcription_timer else 0.0,
+                        reference_text=reference_text,
+                        reference_tokens=self.debug_logger.count_tokens(reference_text) if reference_text else None,
                         wer=self.debug_logger.calculate_wer(reference_text, user_text) if reference_text else None,
-                        transcription_latency_ms=transcription_timer.get_elapsed_ms() if transcription_timer else 0,
+                        llm_latency_ms=llm_latency_ms,
+                        llm_time_to_first_token_ms=llm_ttft_ref[0],
+                        llm_prompt_tokens=llm_prompt_tokens,
                         llm_response=full_response,
-                        llm_response_tokens=self.debug_logger.count_tokens(full_response),
-                        end_to_end_latency_ms=e2e_timer.get_elapsed_ms() if e2e_timer else None
+                        llm_response_tokens=llm_response_tokens,
+                        llm_response_chars=len(full_response),
+                        llm_tokens_per_second=llm_tokens_per_second,
+                        tts_latency_ms=tts_latency_ms,
+                        response_audio_duration_ms=audio_duration_ref[0] if audio_duration_ref[0] > 0 else None,
+                        time_to_first_audio_ms=(
+                            (first_audio_time_ref[0] - e2e_start) * 1000.0
+                            if first_audio_time_ref[0] is not None and e2e_start is not None else None
+                        ),
                     )
                     self.debug_logger.log_turn(metrics)
                     print(f"\n[DEBUG] Metrics logged to {self.config.debug_csv_path}")

@@ -11,6 +11,9 @@ class OllamaClient:
         self.config = config
         self.session: aiohttp.ClientSession = None
         self.conversation_history: List[Dict[str, str]] = []
+        # Populated after every chat() or chat_stream() call with Ollama's server-reported stats.
+        # Keys: eval_count, prompt_eval_count, eval_duration_ns, prompt_eval_duration_ns, total_duration_ns
+        self.last_stats: dict = {}
     
     async def connect(self):
         """Initialize the HTTP session"""
@@ -66,13 +69,22 @@ class OllamaClient:
                 
                 result = await response.json()
                 assistant_message = result["message"]["content"]
-                
+
+                # Capture Ollama's server-side token counts and durations (exact for this model)
+                self.last_stats = {
+                    'eval_count': result.get('eval_count'),               # tokens generated
+                    'prompt_eval_count': result.get('prompt_eval_count'), # tokens in full prompt
+                    'eval_duration_ns': result.get('eval_duration'),      # generation time (ns)
+                    'prompt_eval_duration_ns': result.get('prompt_eval_duration'),
+                    'total_duration_ns': result.get('total_duration'),
+                }
+
                 # Add assistant response to history
                 self.conversation_history.append({
                     "role": "assistant",
                     "content": assistant_message
                 })
-                
+
                 return assistant_message
         
         except Exception as e:
@@ -122,11 +134,20 @@ class OllamaClient:
                     error_text = await response.text()
                     raise RuntimeError(f"Ollama API error: {response.status} - {error_text}")
                 
+                import json
                 async for line in response.content:
                     if line:
                         try:
-                            import json
                             data = json.loads(line)
+                            # The final chunk (done=True) carries stats but no content
+                            if data.get('done'):
+                                self.last_stats = {
+                                    'eval_count': data.get('eval_count'),
+                                    'prompt_eval_count': data.get('prompt_eval_count'),
+                                    'eval_duration_ns': data.get('eval_duration'),
+                                    'prompt_eval_duration_ns': data.get('prompt_eval_duration'),
+                                    'total_duration_ns': data.get('total_duration'),
+                                }
                             if "message" in data and "content" in data["message"]:
                                 chunk = data["message"]["content"]
                                 full_response += chunk
